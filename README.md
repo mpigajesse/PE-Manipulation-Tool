@@ -1,10 +1,10 @@
-# PE BEAR - Analyseur et Editeur de Fichiers PE
+# PE  - Analyseur et Editeur de Fichiers PE
 
 ## Description
 
-**PE BEAR** est un outil professionnel complet pour l'analyse et la manipulation de fichiers **Portable Executable (PE)** sous Windows.
+**PE ** est un outil professionnel complet pour l'analyse et la manipulation de fichiers **Portable Executable (PE)** sous Windows.
 
-Conçu pour le reverse engineering, l'analyse de malwares et l'édition binaire, PE BEAR offre une interface intuitive et colorisée.
+Conçu pour le reverse engineering, l'analyse de malwares et l'édition binaire, PE  offre une interface intuitive et colorisée.
 
 ## Fonctionnalités
 
@@ -63,7 +63,7 @@ python fichier_exe.py "C:\Path\To\File.exe"
 
 - Activation ANSI (Windows 10+)
 - Config (Constantes)
-- PEBear (Classe principale)
+- PE (Classe principale)
   - Section 1: Chargement/Sauvegarde
   - Section 2: Affichage/Formatage
   - Section 3: Analyse PE
@@ -101,7 +101,15 @@ python fichier_exe.py "C:\Path\To\File.exe"
 
 MIT License
 
-## Auteur
+## 📝 Auteur
+
+**Jesse Mpiga-Odoumba**
+- Développeur Full-Stack & Ingénieur IA & Big Data
+- Spécialiste Cybersécurité & Cryptographie
+- Email: jesse.mpiga@a-ct.ma
+- GitHub: [github.com/mpigajesse](https://github.com/mpigajesse)
+
+---
 
 PE BEAR Project v2.0.0  
 Reverse engineering professionnel  
