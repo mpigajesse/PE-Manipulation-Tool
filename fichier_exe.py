@@ -107,9 +107,7 @@ class PE:
         if chemin_fichier and os.path.exists(chemin_fichier):
             self.charger_fichier(chemin_fichier)
 
-    # ============================================================================
     # SECTION 1: CHARGEMENT ET SAUVEGARDE DU FICHIER PE
-    # ============================================================================
 
     def charger_fichier(self, chemin: str) -> bool:
         """
@@ -160,11 +158,13 @@ class PE:
         """
         Sauvegarde le fichier PE modifie sur le disque.
 
-        Processus:
-        1. Verifier qu'un fichier est charge
-        2. Calculer le checksum correct
-        3. Ecrire le fichier modifie
-        4. Afficher confirmation
+        PROCESSUS DÉTAILLÉ:
+        1. Verifier qu'un fichier est charge en mémoire
+        2. Afficher le journal des modifications (si existe)
+        3. Demander confirmation avant de sauvegarder
+        4. Calculer le checksum correct (intégrité du fichier)
+        5. Ecrire le fichier modifie sur le disque
+        6. Afficher confirmation avec détails
 
         Arguments:
             chemin (str, optional): Chemin de sortie (defaut: fichier_original_modified.exe)
@@ -172,24 +172,49 @@ class PE:
         Retour:
             bool: True si sauvegarde reussie, False sinon
         """
+        # ÉTAPE 1: Vérifier qu'un fichier est chargé
         if not self.pe:
-            self.afficher_erreur("Aucun fichier charge")
+            self.afficher_erreur("Aucun fichier charge - Impossible de sauvegarder")
             return False
 
         try:
-            # Determiner le chemin de sortie
+            # ÉTAPE 2: Afficher les modifications avant de sauvegarder
+            if self.modifications:
+                print("")
+                self.afficher_section("RÉSUMÉ AVANT SAUVEGARDE")
+                self.afficher_avertissement(f"{len(self.modifications)} modification(s) seront sauvegardees:")
+                print("")
+                for i, mod in enumerate(self.modifications, 1):
+                    print(f"  {i}. {mod}")
+                print("")
+            else:
+                self.afficher_info("Aucune modification a sauvegarder (lecture seule)")
+                return False
+
+            # ÉTAPE 3: Demander confirmation
+            confirmation = input("Confirmez la sauvegarde? (O/N): ").strip().upper()
+            if confirmation != 'O':
+                self.afficher_info("Sauvegarde annulee")
+                return False
+
+            # ÉTAPE 4: Determiner le chemin de sortie
             chemin_sortie = chemin or f"{self.chemin}_modified.exe"
 
-            # Calculer le checksum correct du fichier modifie
+            # ÉTAPE 5: Calculer le checksum correct du fichier modifie
+            # Le checksum doit correspondre aux nouvelles données
             self.pe.OPTIONAL_HEADER.CheckSum = pefile.PE.calculate_checksum(
                 bytes(self.pe.write())
             )
 
-            # Ecrire le fichier
+            # ÉTAPE 6: Ecrire le fichier sur le disque
             self.pe.write(filename=chemin_sortie)
 
+            # ÉTAPE 7: Afficher confirmation détaillée
+            print("")
             self.afficher_succes(f"Fichier sauvegarde: {chemin_sortie}")
-            self.afficher_info(f"Modifications enregistrees: {len(self.modifications)}")
+            self.afficher_info(f"Total modifications: {len(self.modifications)}")
+            self.afficher_info(f"Checksum recalcule et valide")
+            print("")
 
             return True
 
@@ -197,9 +222,7 @@ class PE:
             self.afficher_erreur(f"Erreur de sauvegarde: {e}")
             return False
 
-    # ============================================================================
     # SECTION 2: AFFICHAGE ET FORMATAGE
-    # ============================================================================
 
     def afficher_entete(self):
         """Affiche l'en-tete principal de l'application."""
@@ -305,9 +328,7 @@ class PE:
                 sep_donnees += f" {val:<{largeurs[i]-1}} |"
             print(sep_donnees)
 
-    # ============================================================================
     # SECTION 3: ANALYSE DU FICHIER PE
-    # ============================================================================
 
     def _afficher_info_resume(self):
         """Affiche un resume rapide du fichier PE charge."""
@@ -592,9 +613,7 @@ class PE:
         except:
             self.afficher_avertissement("Impossible de lire les TLS callbacks")
 
-    # ============================================================================
     # SECTION 4: MENUS INTERACTIFS
-    # ============================================================================
 
     def menu_principal(self):
         """
@@ -635,7 +654,16 @@ class PE:
             print("  4. Editer les proprietes avancees")
             print("  5. Injection de code")
             print("  6. Modifications de securite")
-            print("  7. Journal des modifications")
+
+            # Afficher le nombre de modifs si existe
+            if self.modifications:
+                nb_mods = len(self.modifications)
+                couleur = Config.COLORS['yellow'] if nb_mods > 0 else Config.COLORS['green']
+                reset = Config.COLORS['reset']
+                print(f"  7. {couleur}Journal des modifications ({nb_mods}){reset}")
+            else:
+                print("  7. Journal des modifications")
+
             print("  8. Sauvegarder le fichier")
             print("  9. Quitter")
             print()
@@ -821,9 +849,7 @@ class PE:
             else:
                 self.afficher_erreur("Choix invalide")
 
-    # ============================================================================
     # SECTION 5: FONCTIONS D'EDITION SPECIFIQUES
-    # ============================================================================
 
     def voir_section(self):
         """Affiche les details complets d'une section."""
@@ -910,27 +936,51 @@ class PE:
             self.afficher_erreur(f"Erreur: {e}")
 
     def modifier_point_entree(self):
-        """Modifie l'adresse du point d'entree (RVA) avec confirmation colorisee."""
+        """
+        Modifie l'adresse du point d'entree (RVA) du PE.
+
+        JOURNAL:
+        - Cette modification est AUTOMATIQUEMENT enregistrée dans self.modifications
+        - Visible via Menu 7 (Journal des modifications)
+        - Sera sauvegardée si tu appuies sur Menu 8
+
+        Processus:
+        1. Afficher adresse actuelle en bleu
+        2. Demander nouvelle RVA
+        3. Valider le format hexadécimal
+        4. Modifier l'en-tête PE
+        5. Enregistrer dans le journal ← AUTOMATIQUE!
+        6. Afficher confirmation colorisée
+        """
+        # ÉTAPE 1: Récupérer l'adresse actuelle
         ancien = self.pe.OPTIONAL_HEADER.AddressOfEntryPoint
 
+        # ÉTAPE 2: Afficher l'adresse actuelle en couleur
         couleur_blue = Config.COLORS['blue']
         print(f"\n{couleur_blue}[CURRENT]{Config.COLORS['reset']} Point d'entree: {hex(ancien)}")
 
+        # ÉTAPE 3: Demander nouvelle adresse
         nouveau = input("Nouvelle RVA (hex, ex: 0x1000): ").strip().strip('"').strip("'")
         try:
+            # ÉTAPE 4: Parser l'adresse hexadécimale
             if nouveau.startswith('0x'):
                 nouveau_rva = int(nouveau, 16)
             else:
                 nouveau_rva = int(nouveau, 0)
 
+            # ÉTAPE 5: Modifier l'en-tête PE en mémoire
             self.pe.OPTIONAL_HEADER.AddressOfEntryPoint = nouveau_rva
 
-            # Affichage colorise du changement
+            # ÉTAPE 6: Afficher le changement avec couleurs
             couleur_yellow = Config.COLORS['yellow']
             couleur_green = Config.COLORS['green']
             print(f"{couleur_yellow}[MODIFICATION]{Config.COLORS['reset']} {hex(ancien)} {couleur_yellow}-->{Config.COLORS['reset']} {couleur_green}{hex(nouveau_rva)}{Config.COLORS['reset']}")
 
             self.afficher_succes(f"Point d'entree modifie avec succes")
+
+            # ÉTAPE 7: ENREGISTRER LA MODIFICATION DANS LE JOURNAL ← IMPORTANT!
+            # Cette ligne enregistre automatiquement le changement
+            # Elle sera visible dans Menu 7 (Journal des modifications)
             self.modifications.append(f"ENTRY POINT: {hex(ancien)} -> {hex(nouveau_rva)}")
 
         except ValueError:
@@ -1078,20 +1128,43 @@ class PE:
             self.afficher_erreur(f"Erreur: {e}")
 
     def afficher_journal(self):
-        """Affiche l'historique de toutes les modifications effectuees."""
+        """
+        Affiche l'historique COMPLET de toutes les modifications effectuees.
+
+        Cette fonction affiche:
+        - Nombre total de modifications
+        - Liste de chaque modification avec numero
+        - Couleur rouge/vert selon type
+
+        Utile pour verifier les changements avant sauvegarde.
+        """
+        # Afficher titre
         self.afficher_section("JOURNAL DES MODIFICATIONS")
 
+        # Cas 1: Aucune modification
         if not self.modifications:
-            self.afficher_info("Aucune modification enregistree")
+            self.afficher_avertissement("Aucune modification enregistree")
+            self.afficher_info("Le fichier n'a pas ete modifie")
+            self.afficher_info("Utilisez les menus pour faire des modifications")
             return
 
-        entetes = ["NUM", "MODIFICATION"]
+        # Cas 2: Afficher les modifications
+        entetes = ["#", "MODIFICATION"]
         lignes = [[str(i+1), mod] for i, mod in enumerate(self.modifications)]
+
+        # Afficher tableau
         self.afficher_tableau(entetes, lignes)
 
-    # ============================================================================
+        # Afficher résumé
+        print("")
+        self.afficher_succes(f"Total: {len(self.modifications)} modification(s) enregistree(s)")
+
+        # Info supplémentaire
+        if len(self.modifications) > 0:
+            self.afficher_info("Menu 8) pour sauvegarder le fichier avec ces modifications")
+            print("")
+
     # SECTION 6: UTILITAIRES INTERNES
-    # ============================================================================
 
     def _human_size(self, size: int) -> str:
         """Convertit une taille en bytes en format lisible (Ko, Mo, Go)."""
